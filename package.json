@@ -1,0 +1,16 @@
+{
+  "name": "stock",
+  "version": "1.0.0",
+  "description": "Web dashboard + scripted refresh pipeline for tracing 국민연금(NPS) portfolio composition from official sources.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
