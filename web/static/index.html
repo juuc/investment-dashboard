@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>투자 대시보드</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+
+    <main class="shell">
+      <header class="hero panel">
+        <div>
+          <p class="eyebrow">투자 대시보드</p>
+          <h1>투자 대시보드</h1>
+          <p class="sub">
+            주요 시장 지수, <span class="term" data-term-key="NPS">NPS</span> 자산배분,
+            <span class="term" data-term-key="SEC">SEC</span>
+            <span class="term" data-term-key="13F">13F</span> 이력, 시장 심리 지표를 한 화면에서 확인합니다.
+          </p>
+          <div class="source-tooltip-wrap">
+            <button
+              id="source-tooltip-btn"
+              class="source-tooltip-btn"
+              type="button"
+              aria-expanded="false"
+              aria-controls="source-tooltip-panel"
+            >
+              데이터 출처 설명
+            </button>
+            <div id="source-tooltip-panel" class="source-tooltip-panel" role="dialog" aria-label="데이터 출처 설명" hidden>
+              <h3>이 대시보드의 데이터 출처</h3>
+              <p>
+                이 화면은 서로 다른 공식 소스를 합쳐서 보여줍니다. 각 섹션은 수집 기준과 범위가 다릅니다.
+              </p>
+              <ul>
+                <li>
+                  <strong>시장 지수</strong>: <span class="term" data-term-key="KIS">KIS</span>
+                  <span class="term" data-term-key="API">API</span> (KOSPI/KOSDAQ),
+                  yfinance (NASDAQ/S&amp;P500/Gold), CoinGecko (Bitcoin)
+                </li>
+                <li>
+                  <strong>시장 심리</strong>: data.go.kr KOFIA 통계 API (신용잔고/투자자예탁금)
+                </li>
+                <li>
+                  <strong><span class="term" data-term-key="NPS">NPS</span> 자산배분</strong>: 국민연금 기금운용본부 월간 공시
+                  (<a href="https://fund.nps.or.kr/eng/orinsm/ptflobrkdwn/getOHFD0002M0.do" target="_blank" rel="noreferrer">공식 페이지</a>)
+                </li>
+                <li>
+                  <strong>국내 보유종목(<span class="term" data-term-key="KOSPI">KOSPI</span>/<span class="term" data-term-key="KOSDAQ">KOSDAQ</span>)</strong>:
+                  <span class="term" data-term-key="OPENDART">OpenDART</span> 전자공시에서
+                  국민연금공단 관련 대량보유/주요주주 보고를 집계
+                  (<a href="https://opendart.fss.or.kr/" target="_blank" rel="noreferrer">OpenDART</a>)
+                </li>
+                <li>
+                  <strong>국내 평가금액/가중치</strong>: <span class="term" data-term-key="KIS">KIS</span> 시세
+                  <span class="term" data-term-key="API">API</span> 키가 있으면 평가금액 기준,
+                  없으면 공시 지분율 정규화 기준으로 계산
+                </li>
+                <li>
+                  <strong>미국 보유종목</strong>: <span class="term" data-term-key="SEC">SEC</span>
+                  <span class="term" data-term-key="13F">13F</span>
+                  (<span class="term" data-term-key="NPS">NPS</span> <span class="term" data-term-key="CIK">CIK</span> 기준)로
+                  미국 상장 주식 일부만 포함
+                  (<a href="https://www.sec.gov/edgar/search/" target="_blank" rel="noreferrer">SEC EDGAR</a>)
+                </li>
+              </ul>
+              <p class="source-tooltip-note">
+                참고: 새로고침을 누를 때마다 최신 데이터를 다시 조회하며, 공시 지연/공개 범위에 따라 실제 운용잔고와 시차가 있을 수 있습니다.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="hero-meta">
+          <div class="meta-row">
+            <span>최근 실행 번호</span>
+            <strong id="latest-run">-</strong>
+          </div>
+          <div class="meta-row">
+            <span>마지막 생성 시각 (<span class="term" data-term-key="KST">KST</span>)</span>
+            <strong id="generated-at">-</strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="panel controls">
+        <div class="control-grid">
+          <label>
+            <span class="term" data-term-key="SEC">SEC</span> 조회 범위
+            <select id="sec-history">
+              <option value="full" selected>전체</option>
+              <option value="latest">최신 1건만</option>
+            </select>
+          </label>
+          <label>
+            최대 <span class="term" data-term-key="SEC">SEC</span> 공시 수 (0 = 전체)
+            <input id="sec-max-filings" type="number" min="0" value="0" />
+          </label>
+          <label>
+            표시할 상위 보유 종목 수
+            <input id="top-holdings" type="number" min="5" max="100" value="30" />
+          </label>
+          <label>
+            국내 공시 조회 기간(일)
+            <input id="korea-lookback-days" type="number" min="30" value="120" />
+          </label>
+          <label>
+            국내 API 요청 지연(초)
+            <input id="korea-request-delay" type="number" min="0" step="0.05" value="0.1" />
+          </label>
+          <label>
+            스냅샷 보관 개수 (0 = 무제한)
+            <input id="snapshot-retain" type="number" min="0" value="120" />
+          </label>
+          <label class="toggle-field">
+            <input id="skip-korea" type="checkbox" />
+            국내 공시 수집 건너뛰기
+          </label>
+        </div>
+        <div class="control-actions">
+          <button id="refresh-btn" class="btn-primary">전체 데이터 새로고침</button>
+          <span id="job-pill" class="pill">대기 중</span>
+        </div>
+        <div id="job-progress" class="job-progress" hidden>
+          <div class="progress-header">
+            <span id="progress-label">준비 중...</span>
+            <span id="progress-step">0/0</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="progress-footer">
+            <span id="progress-elapsed">경과: -</span>
+            <span id="progress-eta">예상 남은 시간: -</span>
+          </div>
+        </div>
+        <pre id="job-log" class="job-log"></pre>
+      </section>
+
+      <nav class="tab-bar">
+        <button class="tab-btn active" data-tab="overview">개요</button>
+        <button class="tab-btn" data-tab="nps">NPS</button>
+        <button class="tab-btn" data-tab="market">시장 상세</button>
+      </nav>
+
+      <!-- ===== 개요 (Overview) Tab ===== -->
+      <div id="tab-overview" class="tab-panel active">
+        <section class="kpi-grid kpi-grid-6">
+          <article class="panel kpi kpi-market" id="kpi-kospi">
+            <h3><span class="term" data-term-key="KOSPI">KOSPI</span></h3>
+            <p class="kpi-value" id="kpi-kospi-value">-</p>
+            <span class="kpi-change" id="kpi-kospi-change"></span>
+          </article>
+          <article class="panel kpi kpi-market" id="kpi-kosdaq">
+            <h3><span class="term" data-term-key="KOSDAQ">KOSDAQ</span></h3>
+            <p class="kpi-value" id="kpi-kosdaq-value">-</p>
+            <span class="kpi-change" id="kpi-kosdaq-change"></span>
+          </article>
+          <article class="panel kpi kpi-market">
+            <h3>NASDAQ</h3>
+            <p class="kpi-value" id="kpi-nasdaq-value">-</p>
+            <span class="kpi-change" id="kpi-nasdaq-change"></span>
+          </article>
+          <article class="panel kpi kpi-market">
+            <h3>S&amp;P 500</h3>
+            <p class="kpi-value" id="kpi-sp500-value">-</p>
+            <span class="kpi-change" id="kpi-sp500-change"></span>
+          </article>
+          <article class="panel kpi kpi-market">
+            <h3>Gold (USD/oz)</h3>
+            <p class="kpi-value" id="kpi-gold-value">-</p>
+            <span class="kpi-change" id="kpi-gold-change"></span>
+          </article>
+          <article class="panel kpi kpi-market">
+            <h3>Bitcoin (USD)</h3>
+            <p class="kpi-value" id="kpi-btc-value">-</p>
+            <span class="kpi-change" id="kpi-btc-change"></span>
+            <span class="kpi-sub" id="kpi-btc-krw"></span>
+          </article>
+        </section>
+
+        <section class="panel" id="sentiment-section">
+          <div class="section-head">
+            <h2>시장 심리 — 신용잔고/투자자예탁금 비율</h2>
+            <span id="sentiment-signal-badge" class="signal-badge">-</span>
+          </div>
+          <div class="gauge-wrap">
+            <div class="gauge-bar">
+              <div class="gauge-fill" id="gauge-fill"></div>
+              <div class="gauge-marker gauge-marker-warn" style="left:70%" title="주의 기준 35%"></div>
+              <div class="gauge-marker gauge-marker-danger" style="left:72%" title="COVID 피크 36%"></div>
+            </div>
+            <div class="gauge-labels">
+              <span>0%</span>
+              <span>정상 (&lt;30%)</span>
+              <span>관찰 (30-35%)</span>
+              <span>주의 (35-36%)</span>
+              <span>위험 (≥36%)</span>
+              <span>50%</span>
+            </div>
+          </div>
+          <div class="sentiment-stats" id="sentiment-stats">
+            <div class="sentiment-stat">
+              <span class="sentiment-stat-label">신용잔고</span>
+              <strong id="sentiment-credit">-</strong>
+            </div>
+            <div class="sentiment-stat">
+              <span class="sentiment-stat-label">투자자예탁금</span>
+              <strong id="sentiment-deposits">-</strong>
+            </div>
+            <div class="sentiment-stat">
+              <span class="sentiment-stat-label">비율</span>
+              <strong id="sentiment-ratio">-</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="kpi-grid">
+          <article class="panel kpi">
+            <h3><span class="term" data-term-key="NPS">NPS</span> 기준 월</h3>
+            <p id="kpi-nps-month">-</p>
+          </article>
+          <article class="panel kpi">
+            <h3><span class="term" data-term-key="NPS">NPS</span> 총 운용자산 <span class="term" data-term-key="AUM">(AUM)</span></h3>
+            <p id="kpi-aum">-</p>
+          </article>
+          <article class="panel kpi">
+            <h3>최신 <span class="term" data-term-key="13F">13F</span> 제출일</h3>
+            <p id="kpi-filing-date">-</p>
+          </article>
+          <article class="panel kpi">
+            <h3>처리한 <span class="term" data-term-key="SEC">SEC</span> 공시 수</h3>
+            <p id="kpi-sec-processed">-</p>
+          </article>
+        </section>
+      </div>
+
+      <!-- ===== NPS Tab ===== -->
+      <div id="tab-nps" class="tab-panel">
+        <section class="panel">
+          <div class="section-head">
+            <h2><span class="term" data-term-key="NPS">NPS</span> 자산배분</h2>
+            <span id="nps-asof" class="tag">-</span>
+          </div>
+          <div id="nps-bars" class="bars"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>국내 주식시장 (<span class="term" data-term-key="KOSPI">KOSPI</span>/<span class="term" data-term-key="KOSDAQ">KOSDAQ</span>) 공시 기반 보유 비중</h2>
+            <span id="korea-weight-basis" class="tag">-</span>
+          </div>
+          <div id="korea-weight-bars" class="bars korea-bars"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>국내 보유 종목 상세</h2>
+            <span id="korea-count" class="tag">-</span>
+          </div>
+          <div class="table-wrap">
+            <table id="korea-table">
+              <thead>
+                <tr>
+                  <th>종목명</th>
+                  <th>시장</th>
+                  <th>종목코드</th>
+                  <th>가중치 (%)</th>
+                  <th>지분율 (%)</th>
+                  <th>추정평가액 (억원)</th>
+                  <th>최근 공시일</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>최근 주목 종목 (<span class="term" data-term-key="OPENDART">OpenDART</span> 히스토리 비교)</h2>
+            <span id="korea-emerging-meta" class="tag">-</span>
+          </div>
+          <div id="korea-emerging-bars" class="bars emerging-bars"></div>
+          <div class="table-wrap">
+            <table id="korea-emerging-table">
+              <thead>
+                <tr>
+                  <th>종목명</th>
+                  <th>시장</th>
+                  <th>현재 비중 (%)</th>
+                  <th>단기 변화 (%p)</th>
+                  <th>중기 변화 (%p)</th>
+                  <th>주목 점수</th>
+                  <th>최근 공시일</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>미국 상장 보유 상위 종목 (<span class="term" data-term-key="SEC">SEC</span> <span class="term" data-term-key="13F">13F</span>)</h2>
+            <span class="tag">미국 상장 종목 기준</span>
+          </div>
+          <div id="sec-weight-bars" class="bars holdings-bars"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>미국 상장 보유 상위 종목 상세</h2>
+            <span class="tag">세부 내역</span>
+          </div>
+          <div class="table-wrap">
+            <table id="sec-top-table">
+              <thead>
+                <tr>
+                  <th>발행사</th>
+                  <th>종목 유형</th>
+                  <th><span class="term" data-term-key="CUSIP">CUSIP</span></th>
+                  <th>평가금액 (<span class="term" data-term-key="USD">USD</span> 십억)</th>
+                  <th>비중 (%)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2><span class="term" data-term-key="SEC">SEC</span> <span class="term" data-term-key="13F">13F</span> 제출 이력</h2>
+            <span id="sec-history-count" class="tag">-</span>
+          </div>
+          <div class="table-wrap">
+            <table id="sec-history-table">
+              <thead>
+                <tr>
+                  <th>제출일</th>
+                  <th>보고 기준일</th>
+                  <th>양식(Form)</th>
+                  <th>접수번호(Accession)</th>
+                  <th>상태</th>
+                  <th>총 평가금액 (<span class="term" data-term-key="USD">USD</span> 십억)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>스냅샷 실행 이력</h2>
+            <span class="tag">로컬 실행</span>
+          </div>
+          <ul id="snapshot-list" class="snapshot-list"></ul>
+        </section>
+      </div>
+
+      <!-- ===== 시장 상세 (Market Detail) Tab ===== -->
+      <div id="tab-market" class="tab-panel">
+        <section class="panel">
+          <div class="section-head">
+            <h2>시장 상세 데이터</h2>
+            <span class="tag">준비 중</span>
+          </div>
+          <p style="color:var(--ink-soft)">추가 시장 분석 기능이 곧 제공됩니다.</p>
+        </section>
+      </div>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
